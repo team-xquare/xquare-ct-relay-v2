@@ -1,12 +1,10 @@
-## 에이전트 줄려고 했는데 손코딩 할거서 필요없을듯...
-
 # Xquare ct relay 서버 v2 구상안
 - v1 : `https://github.com/sungjujjang/xquare-ct-ssh`
 
 ## git
 - `https://github.com/team-xquare/xquare-ct-relay-v2` 에서 작업을 진행할 것
 - main 에서 분기한 feat 브랜치들에서 작업하고 머지할 것
-- 커밋 규칙은 일관적으로 지켜줄 것
+- 커밋 규칙은 일관적으로 지킬 것
 
 ## 기존 사항에서 수정점
 - 기존 서버는 각각의 VM 서버에다가 에이전트를 설치하는 식으로 동작했음
