@@ -9,6 +9,8 @@ relay:
   db_path: data/relay.db
   host_key_path: data/relay_host_key
   admin_api_key: "change-me"
+  c2_admin_user: "admin"
+  c2_admin_password: "change-me-c2"
   open_timeout: 15
   ping_interval: 20
   ping_timeout: 20

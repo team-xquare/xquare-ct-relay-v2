@@ -4,6 +4,8 @@ services:
     container_name: xquare-ct-relay
     environment:
       RELAY_ADMIN_API_KEY: ${RELAY_ADMIN_API_KEY:-change-me}
+      RELAY_C2_ADMIN_USER: ${RELAY_C2_ADMIN_USER:-admin}
+      RELAY_C2_ADMIN_PASSWORD: ${RELAY_C2_ADMIN_PASSWORD:-change-me-c2}
       RELAY_DB_PATH: /data/relay.db
       RELAY_HOST_KEY: /data/relay_host_key
       RELAY_SSH_PORT: 22022

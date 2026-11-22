@@ -41,17 +41,12 @@ def _vm_dict(vm):
         "ip": vm.ip,
         "ssh_port": vm.ssh_port,
         "username": vm.username,
-        "has_password": bool(vm.password),
         "enabled": vm.enabled,
         "description": vm.description,
         "ssh_command_example": f"ssh <user>-{vm.vm_uid}@<relay-host> -p <relay-ssh-port>",
     }
 
 
-def _vm_secret(vm):
-    d = _vm_dict(vm)
-    d["password"] = vm.password
-    return d
 
 
 def _gw_dict(gw, online=False, sessions=0):
@@ -83,7 +78,7 @@ async def handle_health(request):
 async def api_list_vms(request):
     _require_api_key(request, request.app["config"])
     db: Database = request.app["db"]
-    return _json({"items": [_vm_secret(v) for v in db.list_vms()]})
+    return _json({"items": [_vm_dict(v) for v in db.list_vms()]})
 
 
 async def api_create_vm(request):
@@ -97,14 +92,13 @@ async def api_create_vm(request):
         raise web.HTTPBadRequest(text="name and ip are required")
     ssh_port = int(body.get("ssh_port") or 22)
     username = str(body.get("username") or "root").strip() or "root"
-    password = str(body.get("password") or "")
     description = str(body.get("description") or "")
     enabled = bool(body.get("enabled", True))
     try:
-        vm = db.add_vm(name=name, ip=ip, ssh_port=ssh_port, username=username, password=password, description=description, enabled=enabled)
+        vm = db.add_vm(name=name, ip=ip, ssh_port=ssh_port, username=username, description=description, enabled=enabled)
     except Exception as exc:
         raise web.HTTPBadRequest(text=str(exc))
-    return _json(_vm_secret(vm), status=201)
+    return _json(_vm_dict(vm), status=201)
 
 
 async def api_get_vm(request):
@@ -113,7 +107,7 @@ async def api_get_vm(request):
     vm = db.get_vm_by_uid(request.match_info["vm_uid"])
     if not vm:
         raise web.HTTPNotFound(text="vm not found")
-    return _json(_vm_secret(vm))
+    return _json(_vm_dict(vm))
 
 
 async def api_update_vm(request):
@@ -121,7 +115,7 @@ async def api_update_vm(request):
     db: Database = request.app["db"]
     body = await request.json()
     fields = {}
-    for k in ("name", "ip", "ssh_port", "username", "password", "description", "enabled"):
+    for k in ("name", "ip", "ssh_port", "username", "description", "enabled"):
         if k in body:
             fields[k] = body[k]
     if "ssh_port" in fields and fields["ssh_port"] is not None:
@@ -129,7 +123,7 @@ async def api_update_vm(request):
     vm = db.update_vm(request.match_info["vm_uid"], **fields)
     if not vm:
         raise web.HTTPNotFound(text="vm not found")
-    return _json(_vm_secret(vm))
+    return _json(_vm_dict(vm))
 
 
 async def api_delete_vm(request):

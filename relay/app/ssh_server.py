@@ -40,16 +40,20 @@ def parse_ssh_username(username: str) -> tuple[str, str] | None:
     return target_user, vm_uid
 
 
+def parse_c2_username(username: str, config: Config) -> bool:
+    return bool(username) and username == config.c2_admin_user
+
+
 class SSHSession(asyncssh.SSHServerSession):
-    def __init__(self, vm_uid: str, target_user: str, db: Database, registry: GatewayRegistry, config: Config):
+    def __init__(self, vm_uid: str, target_user: str, password: str, db: Database, registry: GatewayRegistry, config: Config):
         self.vm_uid = vm_uid
         self.target_user = target_user
+        self.password = password
         self.db = db
         self.registry = registry
         self.config = config
         self._chan: asyncssh.SSHServerChannel | None = None
         self._session: ClientSession | None = None
-        self._input = asyncio.Queue()
         self._term = ("xterm-256color", 80, 24, 0, 0, {})
         self._bridge_task: asyncio.Task | None = None
 
@@ -118,7 +122,7 @@ class SSHSession(asyncssh.SSHServerSession):
                 "target_user": self.target_user,
                 "ip": vm.ip,
                 "ssh_port": vm.ssh_port,
-                "password": vm.password,
+                "password": self.password,
                 "term": term_type,
                 "cols": cols,
                 "rows": rows,
@@ -176,6 +180,178 @@ class _ChanWriter:
             pass
 
 
+class C2Session(asyncssh.SSHServerSession):
+    def __init__(self, db: Database, registry: GatewayRegistry, config: Config):
+        self.db = db
+        self.registry = registry
+        self.config = config
+        self._chan = None
+        self._buf = b""
+        self._task: asyncio.Task | None = None
+
+    def connection_made(self, chan):
+        self._chan = chan
+
+    def shell_requested(self):
+        self._task = asyncio.create_task(self._run())
+        return True
+
+    def pty_requested(self, pty_type, pty_size, term_modes):
+        return True
+
+    def data_received(self, data, datatype):
+        if isinstance(data, str):
+            data = data.encode("utf-8", "replace")
+        self._buf += data
+
+    def eof_received(self):
+        if self._task:
+            self._task.cancel()
+        return False
+
+    def connection_lost(self, exc):
+        if self._task:
+            self._task.cancel()
+
+    def _w(self, s: str):
+        if self._chan:
+            try:
+                self._chan.write(s.replace("\n", "\r\n").encode("utf-8", "replace"))
+            except Exception:
+                pass
+
+    async def _prompt(self) -> str | None:
+        self._w("c2> ")
+        while True:
+            if b"\n" in self._buf or b"\r" in self._buf:
+                # consume one line
+                line = self._buf
+                # split on first \r or \n
+                for i, c in enumerate(line):
+                    if c in (10, 13):
+                        out = line[:i].decode("utf-8", "replace")
+                        rest = line[i+1:]
+                        if c == 13 and rest.startswith(b"\n"):
+                            rest = rest[1:]
+                        self._buf = rest
+                        return out
+            await asyncio.sleep(0.05)
+
+    async def _run(self):
+        self._w("Xquare CT Relay v2 C2\r\nType 'help' for commands.\r\n")
+        try:
+            while True:
+                line = await self._prompt()
+                if line is None:
+                    return
+                await self._handle(line.strip())
+        except asyncio.CancelledError:
+            return
+        except Exception as exc:
+            log.exception("c2 error: %s", exc)
+        finally:
+            try:
+                if self._chan:
+                    self._chan.exit(0)
+            except Exception:
+                pass
+
+    async def _handle(self, line: str):
+        if not line:
+            return
+        parts = line.split()
+        cmd = parts[0].lower()
+        args = parts[1:]
+        if cmd in ("help", "?"):
+            self._w(
+                "Commands:\n"
+                "  status\n"
+                "  vms\n"
+                "  vm-add <name> <ip> [ssh_port] [username] [description...]\n"
+                "  vm-rm <vm_uid>\n"
+                "  vm-enable <vm_uid>\n"
+                "  vm-disable <vm_uid>\n"
+                "  gws\n"
+                "  gw-add <name> [token]\n"
+                "  gw-rm <name>\n"
+                "  exit\n"
+            )
+        elif cmd == "status":
+            gws = self.registry.status()
+            vms = self.db.list_vms()
+            online = sum(1 for g in gws if g["online"])
+            sess = sum(g.get("sessions", 0) for g in gws)
+            self._w(f"vms={len(vms)} gateways={len(gws)} online={online} sessions={sess}\n")
+        elif cmd == "vms":
+            vms = self.db.list_vms()
+            if not vms:
+                self._w("(no vms)\n")
+            for v in vms:
+                st = "on" if v.enabled else "off"
+                self._w(f"{v.vm_uid}\t{st}\t{v.name}\t{v.ip}:{v.ssh_port}\tuser={v.username}\t{v.description}\n")
+        elif cmd == "vm-add":
+            if len(args) < 2:
+                self._w("usage: vm-add <name> <ip> [ssh_port] [username] [description...]\n")
+                return
+            name, ip = args[0], args[1]
+            ssh_port = int(args[2]) if len(args) > 2 else 22
+            username = args[3] if len(args) > 3 else "root"
+            desc = " ".join(args[4:]) if len(args) > 4 else ""
+            try:
+                vm = self.db.add_vm(name=name, ip=ip, ssh_port=ssh_port, username=username, description=desc)
+                self._w(f"added {vm.name} uid={vm.vm_uid}\n")
+            except Exception as exc:
+                self._w(f"error: {exc}\n")
+        elif cmd == "vm-rm":
+            if not args:
+                self._w("usage: vm-rm <vm_uid>\n")
+                return
+            ok = self.db.remove_vm(args[0])
+            self._w("ok\n" if ok else "not found\n")
+        elif cmd in ("vm-enable", "vm-disable"):
+            if not args:
+                self._w(f"usage: {cmd} <vm_uid>\n")
+                return
+            vm = self.db.update_vm(args[0], enabled=(cmd == "vm-enable"))
+            self._w("ok\n" if vm else "not found\n")
+        elif cmd == "gws":
+            db_gws = {g.name: g for g in self.db.list_gateways()}
+            status = {g["name"]: g for g in self.registry.status()}
+            names = sorted(set(db_gws) | set(status))
+            if not names:
+                self._w("(no gateways)\n")
+            for name in names:
+                g = db_gws.get(name)
+                st = status.get(name, {})
+                online = "online" if st.get("online") else "offline"
+                en = "on" if (g.enabled if g else True) else "off"
+                sess = st.get("sessions", 0)
+                token = g.token if g else ""
+                self._w(f"{name}\t{en}\t{online}\tsessions={sess}\ttoken={token}\n")
+        elif cmd == "gw-add":
+            if not args:
+                self._w("usage: gw-add <name> [token]\n")
+                return
+            name = args[0]
+            token = args[1] if len(args) > 1 else None
+            try:
+                gw = self.db.add_gateway(name=name, token=token)
+                self._w(f"added {gw.name} token={gw.token}\n")
+            except Exception as exc:
+                self._w(f"error: {exc}\n")
+        elif cmd == "gw-rm":
+            if not args:
+                self._w("usage: gw-rm <name>\n")
+                return
+            ok = self.db.remove_gateway(args[0])
+            self._w("ok\n" if ok else "not found\n")
+        elif cmd in ("exit", "quit"):
+            if self._chan:
+                self._chan.exit(0)
+        else:
+            self._w("unknown command. type 'help'\n")
+
+
 class RelaySSHServer(asyncssh.SSHServer):
     def __init__(self, db: Database, registry: GatewayRegistry, config: Config):
         self.db = db
@@ -184,15 +360,19 @@ class RelaySSHServer(asyncssh.SSHServer):
         self._username = ""
         self._vm_uid = ""
         self._target_user = ""
+        self._password = ""
+        self._is_admin = False
 
     def connection_made(self, conn):
         self._conn = conn
 
     def begin_auth(self, username):
         self._username = username or ""
+        self._is_admin = parse_c2_username(self._username, self.config)
+        if self._is_admin:
+            return True
         parsed = parse_ssh_username(self._username)
         if not parsed:
-            # force failure later with generic message
             self._target_user = ""
             self._vm_uid = ""
             return True
@@ -203,31 +383,35 @@ class RelaySSHServer(asyncssh.SSHServer):
         return True
 
     def validate_password(self, username, password):
-        parsed = parse_ssh_username(username or "")
+        username = username or ""
+        if parse_c2_username(username, self.config):
+            expected = self.config.c2_admin_password
+            if not expected:
+                return False
+            ok = password == expected
+            if ok:
+                self._is_admin = True
+                self._password = password
+            return ok
+
+        parsed = parse_ssh_username(username)
         if not parsed:
             return False
         target_user, vm_uid = parsed
         vm = self.db.get_vm_by_uid(vm_uid)
         if not vm or not vm.enabled:
             return False
-        # The SSH login password is the VM's stored password (for that target user access)
-        # Spec: "유저 이름에 대한 비밀번호를 넣어야지 접속이 되게 해야 함."
-        # We validate against stored VM password.
-        if not vm.password:
-            return False
-        if password != vm.password:
-            return False
-        # Also ensure target user is allowed - v2 simple: allow requested target user,
-        # but use it when connecting. We store default username in VM; accept any requested
-        # target user as long as password matches? Better enforce target_user == vm.username
-        # OR allow override. Spec shows (접속할 유저 이름)-... so target user is chosen by client.
-        # We'll allow any target username; gateway will ssh as that user with VM's password.
+        # Do not store/validate VM password in relay. Pass it through to gateway->VM SSH.
         self._target_user = target_user
         self._vm_uid = vm_uid
+        self._password = password
+        self._is_admin = False
         return True
 
     def session_requested(self):
-        return SSHSession(self._vm_uid, self._target_user, self.db, self.registry, self.config)
+        if self._is_admin:
+            return C2Session(self.db, self.registry, self.config)
+        return SSHSession(self._vm_uid, self._target_user, self._password, self.db, self.registry, self.config)
 
 
 async def start_ssh_server(db: Database, registry: GatewayRegistry, config: Config):

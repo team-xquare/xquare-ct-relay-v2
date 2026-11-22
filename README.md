@@ -10,7 +10,7 @@ Client
 Relay (public)
   | websocket /gateway (ws://relay:18765/gateway)
 Gateway (internal, multiple allowed, load-balanced)
-  | ssh (password)
+  | ssh (password from user input)
 Target VM (internal)
 ```
 
@@ -30,6 +30,8 @@ cp .env.example .env
 
 ```env
 RELAY_ADMIN_API_KEY=<강력한-랜덤-키>
+RELAY_C2_ADMIN_USER=admin
+RELAY_C2_ADMIN_PASSWORD=<c2-admin-password>
 ```
 
 실행:
@@ -55,13 +57,17 @@ curl http://localhost:18080/health
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r relay/requirements.txt
-RELAY_ADMIN_API_KEY=<강력한-랜덤-키> python -m relay.app.main -c relay/config.example.yaml
+RELAY_ADMIN_API_KEY=<강력한-랜덤-키>
+RELAY_C2_ADMIN_USER=admin
+RELAY_C2_ADMIN_PASSWORD=<c2-admin-password> python -m relay.app.main -c relay/config.example.yaml
 ```
 
 또는 환경변수로 설정:
 
 ```bash
 export RELAY_ADMIN_API_KEY=<강력한-랜덤-키>
+RELAY_C2_ADMIN_USER=admin
+RELAY_C2_ADMIN_PASSWORD=<c2-admin-password>
 export RELAY_SSH_PORT=22022
 export RELAY_WS_PORT=18765
 export RELAY_HTTP_PORT=18080
@@ -134,6 +140,21 @@ python -m gateway.app.main
 - 게이트웨이는 여러 개 등록/실행 가능하며, 릴레이가 새 SSH 세션을 라운드로빈으로 분배합니다.
 - 릴레이 UI/API에서 게이트웨이 `online/sessions` 상태를 확인할 수 있습니다.
 
+## SSH C2 관리자 패널
+
+릴레이 SSH 포트로 C2 관리자 계정에 접속하면 간단한 관리 쉘을 사용할 수 있습니다.
+
+```bash
+ssh admin@<relay-host> -p 22022
+# 비밀번호: RELAY_C2_ADMIN_PASSWORD
+```
+
+지원 명령:
+- `status`, `vms`, `gws`
+- `vm-add <name> <ip> [ssh_port] [username] [description...]`
+- `vm-rm <vm_uid>`, `vm-enable <vm_uid>`, `vm-disable <vm_uid>`
+- `gw-add <name> [token]`, `gw-rm <name>`
+
 ## VM 등록 및 접속
 
 릴레이 UI 또는 API로 VM을 등록합니다.
@@ -147,7 +168,6 @@ curl -X POST http://<relay-host>:18080/api/vms \
     "ip": "10.0.0.10",
     "ssh_port": 22,
     "username": "root",
-    "password": "<vm-password>",
     "description": "production web"
   }'
 ```
@@ -158,13 +178,15 @@ curl -X POST http://<relay-host>:18080/api/vms \
 ssh <target-user>-<vm_uid>@<relay-host> -p 22022
 ```
 
-- SSH 비밀번호는 VM 등록 시 저장한 비밀번호입니다.
-- `<target-user>`는 접속하려는 VM의 OS 사용자 이름입니다(예: `root`, `ubuntu`).
+- SSH 비밀번호는 릴레이에 저장되지 않고, 사용자가 입력한 비밀번호가 게이트웨이를 통해 대상 VM SSH 인증에 그대로 전달됩니다.
+- `<target-user>`는 접속하려는 VM의 OS 사용자 이름입니다(예: `root`, `ubuntu`). 사용자별로 다른 계정/비밀번호를 그대로 사용할 수 있습니다.
 
 ## 설정 요약
 
 ### Relay env
 - `RELAY_ADMIN_API_KEY` - 관리 API 키 (필수)
+- `RELAY_C2_ADMIN_USER` - SSH C2 관리자 사용자명 (기본 `admin`)
+- `RELAY_C2_ADMIN_PASSWORD` - SSH C2 관리자 비밀번호 (필수 권장)
 - `RELAY_SSH_PORT` - 기본 `22022`
 - `RELAY_WS_PORT` - 기본 `18765`
 - `RELAY_HTTP_PORT` - 기본 `18080`
@@ -178,7 +200,7 @@ ssh <target-user>-<vm_uid>@<relay-host> -p 22022
 
 ## 참고
 
-- VM 비밀번호는 릴레이 SQLite에 저장됩니다. `/data`, API 키, 관리자 UI 접근을 보호하세요.
+- VM 비밀번호는 릴레이에 저장하지 않습니다. 릴레이는 사용자가 입력한 비밀번호를 게이트웨이에 전달해 대상 VM 인증에 사용합니다. `/data`, API 키, C2 비밀번호, 관리자 UI 접근을 보호하세요.
 - 로드밸런싱은 온라인 게이트웨이 대상 라운드로빈(세션 단위)입니다.
 - 프로덕션에서는 TLS 리버스프록시, 네트워크 ACL, 비밀 관리 적용을 권장합니다.
 - 상세 API: [`docs/api.md`](docs/api.md)

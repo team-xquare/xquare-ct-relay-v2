@@ -15,7 +15,6 @@ class VM:
     ip: str
     ssh_port: int
     username: str
-    password: str
     enabled: bool
     description: str
 
@@ -38,7 +37,6 @@ CREATE TABLE IF NOT EXISTS vms (
     ip TEXT NOT NULL,
     ssh_port INTEGER NOT NULL DEFAULT 22,
     username TEXT NOT NULL DEFAULT 'root',
-    password TEXT NOT NULL DEFAULT '',
     enabled INTEGER NOT NULL DEFAULT 1,
     description TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
@@ -104,7 +102,6 @@ class Database:
         ip: str,
         ssh_port: int = 22,
         username: str = "root",
-        password: str = "",
         description: str = "",
         enabled: bool = True,
     ) -> VM:
@@ -114,10 +111,10 @@ class Database:
                 try:
                     conn.execute(
                         """
-                        INSERT INTO vms (vm_uid, name, ip, ssh_port, username, password, enabled, description, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO vms (vm_uid, name, ip, ssh_port, username, enabled, description, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         """,
-                        (vm_uid, name, ip, ssh_port, username, password, 1 if enabled else 0, description, _now()),
+                        (vm_uid, name, ip, ssh_port, username, 1 if enabled else 0, description, _now()),
                     )
                     row = conn.execute("SELECT * FROM vms WHERE vm_uid = ?", (vm_uid,)).fetchone()
                     return self._vm(row)
@@ -128,7 +125,7 @@ class Database:
         raise RuntimeError("failed to generate unique vm uid")
 
     def update_vm(self, vm_uid: str, **fields) -> VM | None:
-        allowed = {"name", "ip", "ssh_port", "username", "password", "enabled", "description"}
+        allowed = {"name", "ip", "ssh_port", "username", "enabled", "description"}
         updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
         if not updates:
             return self.get_vm_by_uid(vm_uid)
@@ -208,7 +205,6 @@ class Database:
             ip=row["ip"],
             ssh_port=int(row["ssh_port"]),
             username=row["username"],
-            password=row["password"],
             enabled=bool(row["enabled"]),
             description=row["description"] or "",
         )

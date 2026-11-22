@@ -14,7 +14,6 @@ All admin endpoints require `X-API-Key: <RELAY_ADMIN_API_KEY>` (or `Authorizatio
     "ip": "10.0.0.10",
     "ssh_port": 22,
     "username": "root",
-    "password": "vm-password",
     "description": "optional",
     "enabled": true
   }
@@ -29,7 +28,7 @@ VM response includes `vm_uid` and `ssh_command_example`. Client connects as:
 ssh <target-user>-<vm_uid>@<relay-host> -p 22022
 ```
 
-The SSH password is the VM's stored password.
+The SSH password is NOT stored in relay DB. The password entered by the SSH client is forwarded through gateway to target VM authentication.
 
 ## Gateways
 - `GET /api/gateways`

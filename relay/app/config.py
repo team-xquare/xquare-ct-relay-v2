@@ -30,6 +30,8 @@ class Config:
     db_path: str = "data/relay.db"
     host_key_path: str = "data/relay_host_key"
     admin_api_key: str = ""
+    c2_admin_user: str = "admin"
+    c2_admin_password: str = ""
     open_timeout: float = 15.0
     ping_interval: float = 20.0
     ping_timeout: float = 20.0
@@ -64,5 +66,7 @@ class Config:
         c.db_path = _env("RELAY_DB_PATH", c.db_path)
         c.host_key_path = _env("RELAY_HOST_KEY", c.host_key_path)
         c.admin_api_key = _env("RELAY_ADMIN_API_KEY", c.admin_api_key)
+        c.c2_admin_user = _env("RELAY_C2_ADMIN_USER", c.c2_admin_user)
+        c.c2_admin_password = _env("RELAY_C2_ADMIN_PASSWORD", c.c2_admin_password)
         c.log_level = _env("RELAY_LOG_LEVEL", c.log_level)
         return c
