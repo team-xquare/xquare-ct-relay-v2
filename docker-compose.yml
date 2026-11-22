@@ -1,0 +1,36 @@
+services:
+  relay:
+    build: ./relay
+    container_name: xquare-ct-relay
+    environment:
+      RELAY_ADMIN_API_KEY: ${RELAY_ADMIN_API_KEY:-change-me}
+      RELAY_C2_ADMIN_USER: ${RELAY_C2_ADMIN_USER:-admin}
+      RELAY_C2_ADMIN_PASSWORD: ${RELAY_C2_ADMIN_PASSWORD:-change-me-c2}
+      RELAY_DB_PATH: /data/relay.db
+      RELAY_HOST_KEY: /data/relay_host_key
+      RELAY_SSH_PORT: 22022
+      RELAY_WS_PORT: 18765
+      RELAY_HTTP_PORT: 18080
+      RELAY_LOG_LEVEL: INFO
+    ports:
+      - "22022:22022"
+      - "18765:18765"
+      - "18080:18080"
+    volumes:
+      - relay-data:/data
+    restart: unless-stopped
+
+  gateway:
+    build: ./gateway
+    container_name: xquare-ct-gateway
+    depends_on:
+      - relay
+    environment:
+      GATEWAY_RELAY_WS_URL: ws://relay:18765/gateway
+      GATEWAY_NAME: ${GATEWAY_NAME:-gateway-1}
+      GATEWAY_TOKEN: ${GATEWAY_TOKEN:-replace-with-gateway-token}
+      GATEWAY_LOG_LEVEL: INFO
+    restart: unless-stopped
+
+volumes:
+  relay-data:

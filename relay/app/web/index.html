@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Xquare CT Relay v2</title>
+  <style>
+    :root { --bg:#0b1016; --panel:#151f2b; --panel2:#1a2634; --line:#26384d; --text:#e7edf3; --muted:#91a4b8; --accent:#4fd1c5; --danger:#ff6b6b; --ok:#59d98e; --warn:#f6c177; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; --sans:Inter,"Segoe UI",Roboto,"Noto Sans KR",sans-serif; }
+    *{box-sizing:border-box} body{margin:0;font-family:var(--sans);background:linear-gradient(180deg,#0a0f14,#0e1620);color:var(--text)}
+    .wrap{max-width:1360px;margin:0 auto;padding:28px 20px 40px} .top{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:22px}
+    h1{margin:0;font-size:28px;letter-spacing:-.03em} .sub{color:var(--muted);margin-top:6px;font-size:14px} .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    input,select,button,textarea{background:#101924;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit}
+    button{cursor:pointer;background:#182536} button.primary{background:linear-gradient(180deg,#1d766f,#165e59);border-color:#23867e} button.danger{background:#2a171a;border-color:#5d2a31;color:#ffb4b4}
+    .grid{display:grid;grid-template-columns:1fr;gap:18px} @media(min-width:1100px){.grid{grid-template-columns:1.2fr .8fr}}
+    .panel{background:rgba(21,31,43,.92);border:1px solid var(--line);border-radius:14px;overflow:hidden} .panel-h{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:center}
+    .panel-h h2{margin:0;font-size:16px} .panel-b{padding:16px 18px} .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+    .stat{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px} .stat .k{color:var(--muted);font-size:12px;text-transform:uppercase} .stat .v{font-size:24px;font-weight:700;margin-top:6px}
+    table{width:100%;border-collapse:collapse} th,td{padding:11px 10px;border-bottom:1px solid #223245;text-align:left;vertical-align:top;font-size:14px} th{color:var(--muted);font-size:12px;text-transform:uppercase}
+    .mono{font-family:var(--mono);font-size:12px} .muted{color:var(--muted)} .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;font-size:12px;border:1px solid var(--line);background:#101924}
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)} .on .dot{background:var(--ok)} .off .dot{background:#708399} .dis .dot{background:var(--warn)}
+    .actions{display:flex;gap:8px;flex-wrap:wrap} .form{display:grid;grid-template-columns:repeat(2,1fr);gap:10px} .form .full{grid-column:1/-1} label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px}
+    .field input,.field textarea,.field select{width:100%} textarea{min-height:72px;resize:vertical} .msg{margin-top:10px;font-size:13px;color:var(--muted);min-height:20px} .msg.err{color:#ff9b9b} .msg.ok{color:#8ce0a8}
+    code{font-family:var(--mono);background:#0d1520;padding:2px 6px;border-radius:6px;border:1px solid #223245}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Xquare CT Relay v2</h1>
+        <div class="sub">외부 SSH → 릴레이 → 게이트웨이 WebSocket → 내부 SSH 제어 패널</div>
+      </div>
+      <div class="bar">
+        <input id="apiKey" type="password" placeholder="Admin API Key" style="width:260px">
+        <button id="saveKey">저장</button>
+        <button id="refresh">새로고침</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="k">VMs</div><div class="v" id="statVms">-</div></div>
+      <div class="stat"><div class="k">Gateways Online</div><div class="v" id="statGw">-</div></div>
+      <div class="stat"><div class="k">Active Sessions</div><div class="v" id="statSess">-</div></div>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="panel-h"><h2>가상머신 (VM)</h2><div class="muted" style="font-size:12px">접속: <code>ssh &lt;user&gt;-&lt;vm_uid&gt;@relay-host -p 22022</code></div></div>
+        <div class="panel-b">
+          <table><thead><tr><th>Name / UID</th><th>Target</th><th>User</th><th>Status</th><th></th></tr></thead>
+          <tbody id="vmRows"><tr><td colspan="5" class="muted">Loading...</td></tr></tbody></table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>VM 추가 / 수정</h2><div class="muted" style="font-size:12px" id="formMode">추가 모드</div></div>
+        <div class="panel-b">
+          <form id="vmForm">
+            <input type="hidden" id="vmUid">
+            <div class="form">
+              <div class="field"><label>Name</label><input id="vmName" required placeholder="prod-web-01"></div>
+              <div class="field"><label>IP</label><input id="vmIp" required placeholder="10.0.0.10"></div>
+              <div class="field"><label>SSH Port</label><input id="vmPort" type="number" value="22"></div>
+              <div class="field"><label>Default Username</label><input id="vmUser" value="root"></div>
+              <div class="field full"><label>Description</label><textarea id="vmDesc"></textarea></div>
+              <div class="field"><label>Enabled</label><select id="vmEnabled"><option value="true">true</option><option value="false">false</option></select></div>
+            </div>
+            <div class="actions" style="margin-top:12px"><button class="primary" type="submit" id="vmSubmit">VM 저장</button><button type="button" id="vmReset">초기화</button></div>
+            <div class="msg" id="vmMsg"></div>
+          </form>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>게이트웨이</h2><div class="muted" style="font-size:12px">내부 게이트웨이 VM이 릴레이에 WebSocket 연결</div></div>
+        <div class="panel-b">
+          <table><thead><tr><th>Name</th><th>Status</th><th>Sessions</th><th>Token</th><th></th></tr></thead>
+          <tbody id="gwRows"><tr><td colspan="5" class="muted">Loading...</td></tr></tbody></table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>게이트웨이 추가 / 수정</h2><div class="muted" style="font-size:12px" id="gwMode">추가 모드</div></div>
+        <div class="panel-b">
+          <form id="gwForm">
+            <div class="form">
+              <div class="field"><label>Name</label><input id="gwName" required placeholder="gw-seoul-1"></div>
+              <div class="field"><label>Enabled</label><select id="gwEnabled"><option value="true">true</option><option value="false">false</option></select></div>
+              <div class="field full"><label>Token (비우면 자동 생성)</label><input id="gwToken" placeholder="자동 생성"></div>
+              <div class="field full"><label>Description</label><textarea id="gwDesc"></textarea></div>
+            </div>
+            <div class="actions" style="margin-top:12px"><button class="primary" type="submit">게이트웨이 저장</button><button type="button" id="gwReset">초기화</button></div>
+            <div class="msg" id="gwMsg"></div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+<script>
+const $ = (id) => document.getElementById(id);
+const apiKeyInput = $('apiKey');
+apiKeyInput.value = localStorage.getItem('xq_api_key') || '';
+$('saveKey').onclick = () => { localStorage.setItem('xq_api_key', apiKeyInput.value.trim()); setMsg($('vmMsg'), 'API 키 저장됨', 'ok'); };
+function headers() { const h = {'Content-Type':'application/json'}; const k = apiKeyInput.value.trim(); if (k) h['X-API-Key']=k; return h; }
+async function api(path, opts={}) {
+  const res = await fetch(path, {...opts, headers:{...headers(), ...(opts.headers||{})}});
+  const text = await res.text(); let data; try { data = text ? JSON.parse(text) : {}; } catch { data = {raw:text}; }
+  if (!res.ok) throw new Error(data.error || data.raw || res.statusText); return data;
+}
+function setMsg(el,msg,cls=''){ el.textContent=msg||''; el.className='msg '+(cls||''); }
+function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+let VMS=[], GWS=[];
+async function refresh(){ try{ const [vms,gws]=await Promise.all([api('/api/vms'),api('/api/gateways')]); VMS=vms.items||[]; GWS=gws.items||[]; renderVMs(); renderGWs(); renderStats(); } catch(e){ setMsg($('vmMsg'),'로드 실패: '+e.message+' (API Key 확인)','err'); } }
+function renderStats(){ $('statVms').textContent=VMS.length; const online=GWS.filter(g=>g.online).length; $('statGw').textContent=online+' / '+GWS.length; $('statSess').textContent=GWS.reduce((a,g)=>a+(g.sessions||0),0); }
+function renderVMs(){ const tbody=$('vmRows'); if(!VMS.length){ tbody.innerHTML='<tr><td colspan="5" class="muted">등록된 VM 없음</td></tr>'; return; }
+  tbody.innerHTML=VMS.map(vm=>`<tr><td><div><strong>${esc(vm.name)}</strong></div><div class="mono muted">${esc(vm.vm_uid)}</div></td><td class="mono">${esc(vm.ip)}:${esc(vm.ssh_port)}</td><td class="mono">${esc(vm.username)}</td><td>${vm.enabled?'<span class="pill on"><span class="dot"></span>enabled</span>':'<span class="pill dis"><span class="dot"></span>disabled</span>'}</td><td><div class="actions"><button onclick="editVM('${esc(vm.vm_uid)}')">수정</button><button class="danger" onclick="delVM('${esc(vm.vm_uid)}')">삭제</button></div><div class="mono muted" style="margin-top:6px">ssh ${esc(vm.username)}-${esc(vm.vm_uid)}@HOST -p 22022</div></td></tr>`).join(''); }
+function renderGWs(){ const tbody=$('gwRows'); if(!GWS.length){ tbody.innerHTML='<tr><td colspan="5" class="muted">등록된 게이트웨이 없음</td></tr>'; return; }
+  tbody.innerHTML=GWS.map(gw=>`<tr><td><strong>${esc(gw.name)}</strong><div class="muted" style="font-size:12px">${esc(gw.description||'')}</div></td><td>${!gw.enabled?'<span class="pill dis"><span class="dot"></span>disabled</span>':gw.online?'<span class="pill on"><span class="dot"></span>online</span>':'<span class="pill off"><span class="dot"></span>offline</span>'}</td><td>${gw.sessions||0}</td><td class="mono muted">${esc((gw.token||'').slice(0,8))}…</td><td><div class="actions"><button onclick="editGW('${esc(gw.name)}')">수정</button><button class="danger" onclick="delGW('${esc(gw.name)}')">삭제</button></div></td></tr>`).join(''); }
+window.editVM=(uid)=>{ const vm=VMS.find(v=>v.vm_uid===uid); if(!vm) return; $('vmUid').value=vm.vm_uid; $('vmName').value=vm.name; $('vmIp').value=vm.ip; $('vmPort').value=vm.ssh_port; $('vmUser').value=vm.username; $('vmDesc').value=vm.description||''; $('vmEnabled').value=String(!!vm.enabled); $('formMode').textContent='수정: '+vm.vm_uid; $('vmSubmit').textContent='VM 수정'; setMsg($('vmMsg'),''); };
+window.delVM=async(uid)=>{ if(!confirm('VM을 삭제할까요?')) return; try{ await api('/api/vms/'+uid,{method:'DELETE'}); setMsg($('vmMsg'),'삭제됨','ok'); refresh(); }catch(e){ setMsg($('vmMsg'),e.message,'err'); } };
+window.editGW=(name)=>{ const gw=GWS.find(g=>g.name===name); if(!gw) return; $('gwName').value=gw.name; $('gwName').disabled=true; $('gwToken').value=gw.token||''; $('gwDesc').value=gw.description||''; $('gwEnabled').value=String(!!gw.enabled); $('gwMode').textContent='수정: '+gw.name; setMsg($('gwMsg'),''); };
+window.delGW=async(name)=>{ if(!confirm('게이트웨이를 삭제할까요?')) return; try{ await api('/api/gateways/'+encodeURIComponent(name),{method:'DELETE'}); setMsg($('gwMsg'),'삭제됨','ok'); refresh(); }catch(e){ setMsg($('gwMsg'),e.message,'err'); } };
+$('vmReset').onclick=()=>{ $('vmUid').value=''; $('vmForm').reset(); $('vmPort').value='22'; $('vmUser').value='root'; $('vmEnabled').value='true'; $('formMode').textContent='추가 모드'; $('vmSubmit').textContent='VM 저장'; setMsg($('vmMsg'),''); };
+$('gwReset').onclick=()=>{ $('gwForm').reset(); $('gwName').disabled=false; $('gwEnabled').value='true'; $('gwMode').textContent='추가 모드'; setMsg($('gwMsg'),''); };
+$('vmForm').onsubmit=async(e)=>{ e.preventDefault(); const uid=$('vmUid').value.trim(); const body={name:$('vmName').value.trim(),ip:$('vmIp').value.trim(),ssh_port:parseInt($('vmPort').value||'22',10),username:$('vmUser').value.trim()||'root',description:$('vmDesc').value,enabled:$('vmEnabled').value==='true'};
+  try{ if(uid) await api('/api/vms/'+uid,{method:'PUT',body:JSON.stringify(body)}); else await api('/api/vms',{method:'POST',body:JSON.stringify(body)}); setMsg($('vmMsg'), uid?'수정됨':'추가됨','ok'); $('vmReset').onclick(); refresh(); }catch(e){ setMsg($('vmMsg'),e.message,'err'); } };
+$('gwForm').onsubmit=async(e)=>{ e.preventDefault(); const name=$('gwName').value.trim(); const editing=$('gwName').disabled; const body={name,token:$('gwToken').value.trim(),description:$('gwDesc').value,enabled:$('gwEnabled').value==='true'};
+  try{ if(editing) await api('/api/gateways/'+encodeURIComponent(name),{method:'PUT',body:JSON.stringify({token:body.token,description:body.description,enabled:body.enabled})}); else await api('/api/gateways',{method:'POST',body:JSON.stringify(body)}); setMsg($('gwMsg'), editing?'수정됨':'추가됨','ok'); $('gwReset').onclick(); refresh(); }catch(e){ setMsg($('gwMsg'),e.message,'err'); } };
+$('refresh').onclick=refresh; refresh(); setInterval(refresh,5000);
+</script>
+</body>
+</html>
