@@ -1,0 +1,4 @@
+asyncssh>=2.14.2,<3
+websockets>=12,<14
+aiohttp>=3.9,<4
+PyYAML>=6,<7
