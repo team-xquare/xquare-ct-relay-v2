@@ -190,213 +190,147 @@ class C2Session(asyncssh.SSHServerSession):
         self.registry = registry
         self.config = config
         self._chan: asyncssh.SSHServerChannel | None = None
-        self._input: asyncio.Queue[bytes | None] = asyncio.Queue()
+        self._buf = bytearray()
         self._task: asyncio.Task | None = None
-        self._cols = 120
-        self._rows = 32
+        self._eof = False
 
     def connection_made(self, chan):
         self._chan = chan
+        log.info("c2 connected peer=%s", chan.get_extra_info("peername"))
 
     def pty_requested(self, pty_type, pty_size, term_modes):
-        if pty_size and len(pty_size) >= 2:
-            self._cols = int(pty_size[0] or 120)
-            self._rows = int(pty_size[1] or 32)
         return True
 
     def shell_requested(self):
         self._task = asyncio.create_task(self._run())
         return True
 
-    def terminal_size_changed(self, width, height, pixwidth, pixheight):
-        if width:
-            self._cols = int(width)
-        if height:
-            self._rows = int(height)
+    def exec_requested(self, command):
+        return False
 
     def data_received(self, data, datatype):
         if isinstance(data, str):
             data = data.encode("utf-8", "replace")
-        if data:
-            self._input.put_nowait(data)
+        if not data:
+            return
+        # Echo and buffer input with simple line editing.
+        for b in bytes(data):
+            if b in (10, 13):  # LF/CR
+                # Normalize enter: echo newline and commit line
+                self._write("\r\n")
+                self._buf.extend(b"\n")
+            elif b in (127, 8):  # backspace / DEL
+                if self._buf and self._buf[-1] != 10:
+                    del self._buf[-1]
+                    self._write("\b \b")
+            elif b == 3:  # Ctrl+C
+                self._buf.clear()
+                self._write("^C\r\n" + self.PROMPT)
+            elif b == 4:  # Ctrl+D
+                if not self._buf:
+                    self._eof = True
+                    self._write("\r\n")
+                # if buffer has chars, ignore
+            elif b == 12:  # Ctrl+L
+                self._write("\x1b[2J\x1b[H" + self.PROMPT)
+                # re-echo current buffer
+                try:
+                    self._write(self._buf.decode("utf-8", "replace"))
+                except Exception:
+                    pass
+            elif b == 21:  # Ctrl+U
+                n = len(self._buf)
+                if n:
+                    self._buf.clear()
+                    self._write("\b \b" * n)
+            elif b == 27:  # ESC - start of escape seq; ignore common CSI/SS3
+                # Best-effort: consume escape sequences from remaining data in this same callback
+                # by marking; easier to handle by storing pending escape state.
+                self._esc_pending = getattr(self, "_esc_pending", b"") + b"\x1b"
+            elif b == 9:  # tab - ignore
+                pass
+            elif b < 32:
+                pass
+            else:
+                # If we had pending ESC, try to swallow simple sequences
+                esc = getattr(self, "_esc_pending", b"")
+                if esc:
+                    esc += bytes([b])
+                    # complete CSI: ESC [ ... final 0x40-0x7E
+                    if esc.startswith(b"\x1b["):
+                        if 64 <= b <= 126:
+                            self._esc_pending = b""
+                        else:
+                            self._esc_pending = esc
+                        continue
+                    if esc.startswith(b"\x1bO"):
+                        if len(esc) >= 3:
+                            self._esc_pending = b""
+                        else:
+                            self._esc_pending = esc
+                        continue
+                    # unknown/short escape, drop it
+                    if len(esc) >= 3:
+                        self._esc_pending = b""
+                    else:
+                        self._esc_pending = esc
+                    continue
+                self._buf.append(b)
+                self._write(bytes([b]).decode("utf-8", "replace"))
 
     def eof_received(self):
-        self._input.put_nowait(None)
+        self._eof = True
         return False
 
     def break_received(self, msec):
-        self._input.put_nowait(b"\x03")
+        self._buf.clear()
+        self._write("^C\r\n" + self.PROMPT)
         return True
 
     def connection_lost(self, exc):
-        self._input.put_nowait(None)
+        self._eof = True
         if self._task and not self._task.done():
             self._task.cancel()
 
-    # -- io helpers --------------------------------------------------------
     def _write(self, s: str) -> None:
         if not self._chan:
             return
         try:
-            self._chan.write(s.replace("\n", "\r\n"))
-        except Exception:
-            pass
-
-    def _write_bytes(self, b: bytes) -> None:
-        if not self._chan:
-            return
-        try:
-            self._chan.write(b)
+            self._chan.write(s)
         except Exception:
             pass
 
     async def _readline(self) -> str | None:
-        """Simple line editor with echo, backspace, Ctrl+C/U/D."""
-        buf: list[str] = []
         while True:
-            chunk = await self._input.get()
-            if chunk is None:
+            if self._eof and b"\n" not in self._buf:
                 return None
-            text = chunk.decode("utf-8", "replace")
-            for ch in text:
-                o = ord(ch)
-                if ch in ("\r", "\n"):
-                    self._write("\r\n")
-                    return "".join(buf)
-                if ch == "\x03":  # Ctrl+C
-                    buf.clear()
-                    self._write("^C\r\n" + self.PROMPT)
-                elif ch == "\x04":  # Ctrl+D
-                    if not buf:
-                        self._write("\r\n")
-                        return None
-                    # ignore when buffer has content
-                elif ch == "\x15":  # Ctrl+U
-                    if buf:
-                        # erase current line content
-                        self._write("\b \b" * len(buf))
-                        buf.clear()
-                elif ch in ("\x7f", "\x08"):  # backspace
-                    if buf:
-                        buf.pop()
-                        self._write("\b \b")
-                elif ch == "\x1b":
-                    # swallow basic ANSI escape sequences (arrows etc.) to avoid garbage
-                    # we consume remaining chars from same chunk best-effort by marking state;
-                    # simple approach: ignore ESC; next chars in chunk like [A will be handled below
-                    buf_marker = len(buf)
-                    # peek ahead in current text is hard since we're iterating char by char;
-                    # handle common sequences by looking forward in `text`
-                    # implemented outside loop below
-                    pass
-                elif ch == "\t":
-                    pass
-                elif o < 32 or o == 127:
-                    pass
-                else:
-                    buf.append(ch)
-                    self._write(ch)
-            # Post-process escape sequences in the raw chunk: remove CSI/SS3 sequences
-            # so arrow keys don't leak. We already echoed printable chars; this is a limitation
-            # of char-by-char with chunked escapes. Better to handle at chunk level.
-        # unreachable
-
-    async def _readline_chunked(self) -> str | None:
-        """Line editor that handles escape sequences at chunk level."""
-        buf: list[str] = []
-        esc_pending = ""  # carries partial escape across chunks
-        while True:
-            chunk = await self._input.get()
-            if chunk is None:
-                return None
-            data = esc_pending + chunk.decode("utf-8", "replace")
-            esc_pending = ""
-            i = 0
-            while i < len(data):
-                ch = data[i]
-                o = ord(ch)
-                if ch == "\x1b":  # escape sequence
-                    # try to consume CSI: ESC [ ... final-byte
-                    if i + 1 >= len(data):
-                        esc_pending = data[i:]
-                        break
-                    nxt = data[i + 1]
-                    if nxt == "[":
-                        j = i + 2
-                        while j < len(data) and 0x30 <= ord(data[j]) <= 0x3F:
-                            j += 1
-                        while j < len(data) and 0x20 <= ord(data[j]) <= 0x2F:
-                            j += 1
-                        if j >= len(data):
-                            esc_pending = data[i:]
-                            break
-                        # final byte 0x40-0x7E
-                        if 0x40 <= ord(data[j]) <= 0x7E:
-                            i = j + 1
-                            continue  # ignore arrow keys etc.
-                        i = j + 1
-                        continue
-                    elif nxt == "O":
-                        if i + 2 >= len(data):
-                            esc_pending = data[i:]
-                            break
-                        i += 3
-                        continue
-                    else:
-                        i += 2
-                        continue
-                if ch in ("\r", "\n"):
-                    self._write("\r\n")
-                    return "".join(buf)
-                if ch == "\x03":
-                    buf.clear()
-                    self._write("^C\r\n")
-                    return ""
-                if ch == "\x04":
-                    if not buf:
-                        self._write("exit\r\n")
-                        return None
-                    i += 1
-                    continue
-                if ch == "\x15":
-                    if buf:
-                        self._write("\b \b" * len(buf))
-                        buf.clear()
-                    i += 1
-                    continue
-                if ch == "\x0c":  # Ctrl+L
-                    self._write("\x1b[2J\x1b[H" + self.PROMPT + "".join(buf))
-                    i += 1
-                    continue
-                if ch in ("\x7f", "\x08"):
-                    if buf:
-                        buf.pop()
-                        self._write("\b \b")
-                    i += 1
-                    continue
-                if ch == "\t" or o < 32 or o == 127:
-                    i += 1
-                    continue
-                buf.append(ch)
-                self._write(ch)
-                i += 1
+            if b"\n" in self._buf:
+                idx = self._buf.index(b"\n")
+                line = bytes(self._buf[:idx])
+                del self._buf[: idx + 1]
+                # strip optional CR
+                line = line.replace(b"\r", b"")
+                return line.decode("utf-8", "replace")
+            await asyncio.sleep(0.03)
 
     async def _run(self) -> None:
-        self._write(
-            "\r\n"
-            "\x1b[1;36mXquare CT Relay v2\x1b[0m \x1b[2mC2 Admin\x1b[0m\r\n"
-            "Type \x1b[1mhelp\x1b[0m for commands.\r\n\r\n"
-        )
+        self._write("\r\nXquare CT Relay v2 - C2 Admin\r\n")
+        self._write("Type 'help' for commands.\r\n\r\n")
         try:
             while True:
                 self._write(self.PROMPT)
-                line = await self._readline_chunked()
+                line = await self._readline()
                 if line is None:
                     return
                 line = line.strip()
                 if not line:
                     continue
-                should_exit = await self._handle(line)
+                try:
+                    should_exit = await self._handle(line)
+                except Exception as exc:
+                    log.exception("c2 command error")
+                    self._write(f"error: {exc}\r\n")
+                    should_exit = False
                 if should_exit:
                     return
         except asyncio.CancelledError:
@@ -410,12 +344,8 @@ class C2Session(asyncssh.SSHServerSession):
             except Exception:
                 pass
 
-    # -- commands ----------------------------------------------------------
     async def _handle(self, line: str) -> bool:
-        try:
-            parts = line.split()
-        except Exception:
-            parts = line.strip().split()
+        parts = line.split()
         cmd = parts[0].lower()
         args = parts[1:]
 
@@ -427,7 +357,7 @@ class C2Session(asyncssh.SSHServerSession):
             self._cmd_vms()
         elif cmd in ("gws", "gw", "gateways", "gateway", "list-gw", "list-gws"):
             self._cmd_gws()
-        elif cmd in ("ls",):
+        elif cmd in ("ls", "list"):
             self._cmd_ls(args)
         elif cmd in ("vm-add", "add-vm"):
             self._cmd_vm_add(args)
@@ -443,36 +373,30 @@ class C2Session(asyncssh.SSHServerSession):
             self._cmd_gw_rm(args)
         elif cmd in ("clear", "cls"):
             self._write("\x1b[2J\x1b[H")
-            return False
         elif cmd in ("whoami",):
             self._write(f"{self.config.c2_admin_user}\r\n")
         elif cmd in ("exit", "quit", "q"):
             self._write("bye\r\n")
             return True
         else:
-            self._write(f"unknown command: {cmd}  (type 'help')\r\n")
+            self._write(f"unknown command: {cmd} (type 'help')\r\n")
         return False
 
     def _cmd_help(self) -> None:
         self._write(
-            "\r\n\x1b[1mCommands\x1b[0m\r\n"
+            "\r\nCommands:\r\n"
             "  status                           relay/gateway/vm summary\r\n"
             "  vms                              list VMs\r\n"
             "  gws                              list gateways\r\n"
-            "  ls [vms|gws]                     alias list\r\n"
+            "  ls [vms|gws]                     list alias\r\n"
             "  vm-add <name> <ip> [port] [user] [desc...]\r\n"
-            "                                   add VM (no password stored)\r\n"
-            "  vm-rm <vm_uid>                   remove VM\r\n"
-            "  vm-enable <vm_uid>               enable VM\r\n"
-            "  vm-disable <vm_uid>              disable VM\r\n"
-            "  gw-add <name> [token]            add gateway\r\n"
-            "  gw-rm <name>                     remove gateway\r\n"
-            "  whoami                           current admin user\r\n"
-            "  clear                            clear screen\r\n"
-            "  exit                             disconnect\r\n"
-            "\r\n"
-            "\x1b[2mSSH access: ssh <target-user>-<vm_uid>@<relay-host> -p <ssh-port>\x1b[0m\r\n"
-            "\x1b[2mPassword is prompted by SSH and passed through to target VM.\x1b[0m\r\n\r\n"
+            "  vm-rm <vm_uid>\r\n"
+            "  vm-enable <vm_uid>\r\n"
+            "  vm-disable <vm_uid>\r\n"
+            "  gw-add <name> [token]\r\n"
+            "  gw-rm <name>\r\n"
+            "  clear\r\n"
+            "  exit\r\n\r\n"
         )
 
     def _cmd_status(self) -> None:
@@ -480,24 +404,20 @@ class C2Session(asyncssh.SSHServerSession):
         vms = self.db.list_vms()
         online = sum(1 for g in gws if g.get("online"))
         sessions = sum(int(g.get("sessions", 0)) for g in gws)
-        self._write(
-            f"\r\nvms={len(vms)}  gateways={len(gws)}  online={online}  sessions={sessions}\r\n\r\n"
-        )
+        self._write(f"vms={len(vms)} gateways={len(gws)} online={online} sessions={sessions}\r\n")
 
     def _cmd_vms(self) -> None:
         vms = self.db.list_vms()
         if not vms:
             self._write("(no vms)\r\n")
             return
-        self._write("\r\nUID          ST  NAME                 TARGET               USER       DESC\r\n")
+        self._write("UID          ST  NAME                 TARGET               USER       DESC\r\n")
         self._write("-" * 90 + "\r\n")
         for v in vms:
-            st = "\x1b[32mon \x1b[0m" if v.enabled else "\x1b[33moff\x1b[0m"
+            st = "on " if v.enabled else "off"
             desc = (v.description or "")[:28]
-            self._write(
-                f"{v.vm_uid:<12} {st} {v.name:<20} {v.ip + ':' + str(v.ssh_port):<20} {v.username:<10} {desc}\r\n"
-            )
-        self._write("\r\n")
+            target = f"{v.ip}:{v.ssh_port}"
+            self._write(f"{v.vm_uid:<12} {st:<3} {v.name:<20} {target:<20} {v.username:<10} {desc}\r\n")
 
     def _cmd_gws(self) -> None:
         db_gws = {g.name: g for g in self.db.list_gateways()}
@@ -506,27 +426,25 @@ class C2Session(asyncssh.SSHServerSession):
         if not names:
             self._write("(no gateways)\r\n")
             return
-        self._write("\r\nNAME                 EN  STATE    SESS  TOKEN\r\n")
+        self._write("NAME                 EN  STATE    SESS  TOKEN\r\n")
         self._write("-" * 88 + "\r\n")
         for name in names:
             g = db_gws.get(name)
             st = status.get(name, {})
             en = "on" if (g.enabled if g else True) else "off"
-            online = st.get("online")
-            state = "\x1b[32monline \x1b[0m" if online else "\x1b[31moffline\x1b[0m"
+            online = "online" if st.get("online") else "offline"
             sess = int(st.get("sessions", 0))
             token = g.token if g else ""
             shown = (token[:10] + "...") if len(token) > 13 else token
-            self._write(f"{name:<20} {en:<3} {state} {sess:<5} {shown}\r\n")
-        self._write("\r\n")
+            self._write(f"{name:<20} {en:<3} {online:<7} {sess:<5} {shown}\r\n")
 
     def _cmd_ls(self, args: list[str]) -> None:
         target = args[0].lower() if args else "all"
         if target in ("vms", "vm"):
             self._cmd_vms()
-        elif target in ("gws", "gw", "gateways"):
+        elif target in ("gws", "gw", "gateways", "gateway"):
             self._cmd_gws()
-        elif target in ("all",):
+        elif target == "all":
             self._cmd_vms()
             self._cmd_gws()
         else:
@@ -551,7 +469,7 @@ class C2Session(asyncssh.SSHServerSession):
         except Exception as exc:
             self._write(f"error: {exc}\r\n")
             return
-        self._write(f"\x1b[32madded\x1b[0m {vm.name} uid={vm.vm_uid}\r\n")
+        self._write(f"added {vm.name} uid={vm.vm_uid}\r\n")
         self._write(f"connect: ssh <user>-{vm.vm_uid}@<relay-host> -p <ssh-port>\r\n")
 
     def _cmd_vm_rm(self, args: list[str]) -> None:
@@ -579,8 +497,7 @@ class C2Session(asyncssh.SSHServerSession):
         except Exception as exc:
             self._write(f"error: {exc}\r\n")
             return
-        self._write(f"\x1b[32madded\x1b[0m {gw.name}\r\n")
-        self._write(f"token={gw.token}\r\n")
+        self._write(f"added {gw.name} token={gw.token}\r\n")
 
     def _cmd_gw_rm(self, args: list[str]) -> None:
         if not args:
