@@ -296,7 +296,8 @@ class C2Session(asyncssh.SSHServerSession):
         if not self._chan:
             return
         try:
-            self._chan.write(s)
+            data = s.replace("\n", "\r\n").encode("utf-8", "replace")
+            self._chan.write(data)
         except Exception:
             pass
 

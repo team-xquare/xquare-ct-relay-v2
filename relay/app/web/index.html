@@ -1,160 +1,223 @@
 <!doctype html>
-<html lang="ko" class="dark">
+<html lang="ko">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Xquare CT Relay</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            background: 'hsl(240 10% 3.9%)',
-            foreground: 'hsl(0 0% 98%)',
-            card: 'hsl(240 10% 5.5%)',
-            muted: 'hsl(240 4% 16%)',
-            mutedfg: 'hsl(240 5% 64.9%)',
-            border: 'hsl(240 4% 18%)',
-            input: 'hsl(240 4% 18%)',
-            primary: 'hsl(0 0% 98%)',
-            primaryfg: 'hsl(240 5.9% 10%)',
-            destructive: 'hsl(0 62.8% 50.6%)',
-          },
-          borderRadius: { lg: '0.75rem', md: '0.5rem', sm: '0.375rem' }
-        }
-      }
-    }
-  </script>
   <style>
-    :root { color-scheme: dark; }
-    body { background: hsl(240 10% 3.9%); }
-    * { border-color: hsl(240 4% 18%); }
-    .btn { display:inline-flex; align-items:center; justify-content:center; border-radius:0.5rem; font-size:0.875rem; font-weight:500; height:2.25rem; padding:0 0.875rem; border:1px solid hsl(240 4% 18%); background:hsl(240 4% 10%); color:hsl(0 0% 98%); transition:.15s; }
-    .btn:hover { background:hsl(240 4% 16%); }
-    .btn-primary { background:hsl(0 0% 98%); color:hsl(240 5.9% 10%); border-color:hsl(0 0% 98%); }
-    .btn-primary:hover { background:hsl(0 0% 90%); }
-    .btn-danger { color:hsl(0 84% 70%); background:transparent; }
-    .btn-danger:hover { background:hsl(0 62.8% 20% / .35); }
-    .btn-sm { height:2rem; padding:0 0.625rem; font-size:0.8125rem; }
-    .input, .select, .textarea { width:100%; height:2.5rem; border-radius:0.5rem; border:1px solid hsl(240 4% 18%); background:hsl(240 10% 3.9%); padding:0 0.75rem; font-size:0.875rem; color:hsl(0 0% 98%); outline:none; }
-    .textarea { height:auto; min-height:72px; padding:0.625rem 0.75rem; resize:vertical; }
-    .input:focus, .select:focus, .textarea:focus { border-color:hsl(240 5% 35%); box-shadow:0 0 0 2px hsl(240 5% 26% / .35); }
-    .card { background:hsl(240 10% 5.5%); border:1px solid hsl(240 4% 18%); border-radius:0.75rem; }
-    .label { display:block; font-size:0.8125rem; font-weight:500; margin-bottom:0.375rem; color:hsl(0 0% 90%); }
-    .muted { color:hsl(240 5% 64.9%); }
-    .mono { font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12px; }
-    .badge { display:inline-flex; align-items:center; gap:0.375rem; border-radius:9999px; padding:0.125rem 0.625rem; font-size:0.75rem; font-weight:500; border:1px solid hsl(240 4% 18%); background:hsl(240 4% 12%); }
-    .badge .dot { width:6px; height:6px; border-radius:9999px; background:currentColor; }
-    .badge-on { color:hsl(142 71% 65%); background:hsl(142 40% 12%); border-color:hsl(142 30% 20%); }
-    .badge-off { color:hsl(240 5% 64.9%); }
-    .badge-warn { color:hsl(45 93% 70%); background:hsl(45 40% 12%); border-color:hsl(45 30% 20%); }
-    table { width:100%; border-collapse:collapse; }
-    th { text-align:left; padding:0.625rem 0.75rem; font-size:0.75rem; color:hsl(240 5% 64.9%); font-weight:500; border-bottom:1px solid hsl(240 4% 18%); }
-    td { padding:0.75rem; font-size:0.875rem; border-bottom:1px solid hsl(240 4% 14%); vertical-align:top; }
-    tr:last-child td { border-bottom:0; }
-    .msg { font-size:0.8125rem; min-height:1.25rem; margin-top:0.625rem; color:hsl(240 5% 64.9%); }
-    .msg.ok { color:hsl(142 71% 65%); }
-    .msg.err { color:hsl(0 84% 70%); }
+    :root {
+      color-scheme: light;
+      --bg: 0 0% 100%;
+      --bg-muted: 240 4.8% 95.9%;
+      --card: 0 0% 100%;
+      --fg: 240 10% 8%;
+      --muted-fg: 240 4% 42%;
+      --border: 240 5.9% 88%;
+      --input: 240 5.9% 88%;
+      --primary: 240 5.9% 10%;
+      --primary-fg: 0 0% 98%;
+      --danger: 0 72% 45%;
+      --ok: 142 65% 32%;
+      --warn: 38 92% 38%;
+      --ring: 240 5% 60%;
+      --radius: 0.75rem;
+      font-size: 16px;
+    }
+    :root.dark {
+      color-scheme: dark;
+      --bg: 240 10% 3.9%;
+      --bg-muted: 240 4% 16%;
+      --card: 240 10% 6%;
+      --fg: 0 0% 98%;
+      --muted-fg: 240 5% 68%;
+      --border: 240 4% 20%;
+      --input: 240 4% 20%;
+      --primary: 0 0% 98%;
+      --primary-fg: 240 5.9% 10%;
+      --danger: 0 84% 72%;
+      --ok: 142 71% 65%;
+      --warn: 45 93% 70%;
+      --ring: 240 5% 45%;
+    }
+    :root.large-text { font-size: 19px; }
+    * { box-sizing: border-box; border-color: hsl(var(--border)); }
+    body { margin: 0; background: hsl(var(--bg)); color: hsl(var(--fg)); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", sans-serif; line-height: 1.5; }
+    .container { max-width: 80rem; margin: 0 auto; padding: 1.5rem 1rem 2.5rem; }
+    @media (min-width: 768px) { .container { padding: 2rem 1.5rem 3rem; } }
+    .card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+    .muted { color: hsl(var(--muted-fg)); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85em; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; height: 2.75rem; padding: 0 1rem; border-radius: 0.625rem; font-size: 0.9375rem; font-weight: 500; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--fg)); cursor: pointer; white-space: nowrap; }
+    .btn:hover { background: hsl(var(--bg-muted)); }
+    .btn:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+    .btn-primary { background: hsl(var(--primary)); color: hsl(var(--primary-fg)); border-color: hsl(var(--primary)); }
+    .btn-primary:hover { opacity: .9; background: hsl(var(--primary)); }
+    .btn-danger { color: hsl(var(--danger)); }
+    .btn-danger:hover { background: hsl(var(--danger) / 0.08); }
+    .btn-sm { height: 2.375rem; padding: 0 0.875rem; font-size: 0.875rem; }
+    .input, .select, .textarea { width: 100%; height: 2.875rem; border-radius: 0.625rem; border: 1px solid hsl(var(--input)); background: hsl(var(--bg)); color: hsl(var(--fg)); padding: 0 0.875rem; font-size: 1rem; }
+    .textarea { min-height: 5.5rem; height: auto; padding: 0.625rem 0.875rem; resize: vertical; }
+    .input:focus, .select:focus, .textarea:focus { outline: 2px solid hsl(var(--ring)); outline-offset: 1px; border-color: hsl(var(--ring)); }
+    .label { display: block; font-size: 0.9375rem; font-weight: 550; margin-bottom: 0.375rem; }
+    .badge { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.2rem 0.625rem; border-radius: 999px; font-size: 0.8125rem; font-weight: 550; border: 1px solid hsl(var(--border)); background: hsl(var(--bg-muted)); }
+    .badge .dot { width: 0.45rem; height: 0.45rem; border-radius: 999px; background: currentColor; }
+    .badge-on { color: hsl(var(--ok)); }
+    .badge-off { color: hsl(var(--muted-fg)); }
+    .badge-warn { color: hsl(var(--warn)); }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 0.875rem 0.75rem; font-size: 0.8125rem; font-weight: 600; color: hsl(var(--muted-fg)); border-bottom: 1px solid hsl(var(--border)); white-space: nowrap; }
+    td { padding: 0.9375rem 0.75rem; font-size: 0.9375rem; border-bottom: 1px solid hsl(var(--border)); vertical-align: top; }
+    tr:last-child td { border-bottom: 0; }
+    .msg { min-height: 1.5rem; margin-top: 0.625rem; font-size: 0.875rem; color: hsl(var(--muted-fg)); }
+    .msg.ok { color: hsl(var(--ok)); }
+    .msg.err { color: hsl(var(--danger)); }
+    .stat-value { font-size: clamp(1.75rem, 2.5vw, 2.25rem); font-weight: 650; line-height: 1.1; margin-top: 0.375rem; letter-spacing: -0.02em; }
   </style>
 </head>
-<body class="text-foreground min-h-screen">
-  <div class="max-w-7xl mx-auto px-4 py-6 md:px-6 md:py-8">
-    <header class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-6">
+<body>
+  <div class="container">
+    <header class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between mb-6">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Xquare CT Relay</h1>
-        <p class="text-sm muted mt-1">VM · Gateway · SSH relay admin</p>
+        <h1 class="text-3xl md:text-4xl font-semibold tracking-tight">Xquare CT Relay</h1>
+        <p class="text-base muted mt-1">VM and gateway administration</p>
       </div>
-      <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
-        <input id="apiKey" type="password" class="input sm:w-72" placeholder="Admin API Key" autocomplete="off">
-        <div class="flex gap-2">
-          <button id="saveKey" class="btn">Save Key</button>
-          <button id="refresh" class="btn btn-primary">Refresh</button>
+      <div class="flex flex-col gap-2 w-full xl:w-auto">
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input id="apiKey" type="password" class="input sm:w-80" placeholder="Admin API Key" autocomplete="off" spellcheck="false">
+          <button id="saveKey" class="btn" type="button">Save Key</button>
+          <button id="refresh" class="btn btn-primary" type="button">Refresh</button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="themeToggle" class="btn btn-sm" type="button">Dark mode</button>
+          <button id="textToggle" class="btn btn-sm" type="button">Large text</button>
         </div>
       </div>
     </header>
 
-    <div id="globalMsg" class="msg mb-4"></div>
+    <div id="globalMsg" class="msg mb-4" aria-live="polite"></div>
 
-    <section class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-      <div class="card p-4"><div class="text-xs muted">VMs</div><div id="statVms" class="text-2xl font-semibold mt-1">-</div></div>
-      <div class="card p-4"><div class="text-xs muted">Gateways Online</div><div id="statGw" class="text-2xl font-semibold mt-1">-</div></div>
-      <div class="card p-4"><div class="text-xs muted">Active Sessions</div><div id="statSess" class="text-2xl font-semibold mt-1">-</div></div>
+    <section class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6" aria-label="Summary">
+      <div class="card p-5">
+        <div class="text-sm font-medium muted">VMs</div>
+        <div id="statVms" class="stat-value">-</div>
+      </div>
+      <div class="card p-5">
+        <div class="text-sm font-medium muted">Gateways Online</div>
+        <div id="statGw" class="stat-value">-</div>
+      </div>
+      <div class="card p-5">
+        <div class="text-sm font-medium muted">Active Sessions</div>
+        <div id="statSess" class="stat-value">-</div>
+      </div>
     </section>
 
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
       <section class="card xl:col-span-2">
-        <div class="px-4 py-4 border-b flex items-center justify-between gap-3">
-          <div>
-            <h2 class="font-medium">Virtual Machines</h2>
-            <p class="text-xs muted mt-0.5">SSH: <span class="mono">ssh &lt;user&gt;-&lt;vm_uid&gt;@relay-host -p 22022</span></p>
-          </div>
+        <div class="px-5 py-4 border-b">
+          <h2 class="text-lg font-semibold">Virtual Machines</h2>
+          <p class="text-sm muted mt-1">SSH command: <span class="mono">ssh &lt;user&gt;-&lt;vm_uid&gt;@relay-host -p 22022</span></p>
         </div>
         <div class="overflow-x-auto">
           <table>
-            <thead><tr><th>Name</th><th>Target</th><th>User</th><th>Status</th><th></th></tr></thead>
-            <tbody id="vmRows"><tr><td colspan="5" class="muted">Loading...</td></tr></tbody>
+            <thead><tr><th>Name</th><th>Target</th><th>User</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="vmRows"><tr><td colspan="5" class="muted p-4">Loading...</td></tr></tbody>
           </table>
         </div>
       </section>
 
       <section class="card">
-        <div class="px-4 py-4 border-b">
-          <h2 class="font-medium" id="vmFormTitle">Add VM</h2>
-          <p class="text-xs muted mt-0.5" id="vmFormDesc">Create or edit a VM.</p>
+        <div class="px-5 py-4 border-b">
+          <h2 class="text-lg font-semibold" id="vmFormTitle">Add VM</h2>
+          <p class="text-sm muted mt-1" id="vmFormDesc">Register a new VM.</p>
         </div>
-        <div class="p-4">
-          <form id="vmForm" class="space-y-3">
+        <div class="p-5">
+          <form id="vmForm" class="space-y-4">
             <input type="hidden" id="vmUid">
-            <div><label class="label" for="vmName">Name</label><input id="vmName" class="input" required placeholder="prod-web-01"></div>
-            <div class="grid grid-cols-2 gap-3">
-              <div><label class="label" for="vmIp">IP</label><input id="vmIp" class="input" required placeholder="10.0.0.10"></div>
-              <div><label class="label" for="vmPort">SSH Port</label><input id="vmPort" class="input" type="number" min="1" max="65535" value="22"></div>
+            <div>
+              <label class="label" for="vmName">Name</label>
+              <input id="vmName" class="input" required placeholder="prod-web-01">
             </div>
-            <div class="grid grid-cols-2 gap-3">
-              <div><label class="label" for="vmUser">Username</label><input id="vmUser" class="input" value="root"></div>
-              <div><label class="label" for="vmEnabled">Enabled</label><select id="vmEnabled" class="select"><option value="true">true</option><option value="false">false</option></select></div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="label" for="vmIp">IP</label>
+                <input id="vmIp" class="input" required placeholder="10.0.0.10">
+              </div>
+              <div>
+                <label class="label" for="vmPort">SSH Port</label>
+                <input id="vmPort" class="input" type="number" min="1" max="65535" value="22">
+              </div>
             </div>
-            <div><label class="label" for="vmDescInput">Description</label><textarea id="vmDescInput" class="textarea" placeholder="Optional"></textarea></div>
-            <div class="flex gap-2 pt-1">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="label" for="vmUser">Username</label>
+                <input id="vmUser" class="input" value="root">
+              </div>
+              <div>
+                <label class="label" for="vmEnabled">Enabled</label>
+                <select id="vmEnabled" class="select">
+                  <option value="true">true</option>
+                  <option value="false">false</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="label" for="vmDescInput">Description</label>
+              <textarea id="vmDescInput" class="textarea" placeholder="Optional"></textarea>
+            </div>
+            <div class="flex flex-wrap gap-2 pt-1">
               <button type="submit" class="btn btn-primary" id="vmSubmit">Save VM</button>
               <button type="button" class="btn" id="vmReset">Reset</button>
             </div>
-            <div id="vmMsg" class="msg"></div>
+            <div id="vmMsg" class="msg" aria-live="polite"></div>
           </form>
         </div>
       </section>
 
       <section class="card xl:col-span-2">
-        <div class="px-4 py-4 border-b">
-          <h2 class="font-medium">Gateways</h2>
-          <p class="text-xs muted mt-0.5">Internal gateways connected over WebSocket.</p>
+        <div class="px-5 py-4 border-b">
+          <h2 class="text-lg font-semibold">Gateways</h2>
+          <p class="text-sm muted mt-1">Gateways connected to the relay over WebSocket.</p>
         </div>
         <div class="overflow-x-auto">
           <table>
-            <thead><tr><th>Name</th><th>Status</th><th>Sessions</th><th>Token</th><th></th></tr></thead>
-            <tbody id="gwRows"><tr><td colspan="5" class="muted">Loading...</td></tr></tbody>
+            <thead><tr><th>Name</th><th>Status</th><th>Sessions</th><th>Token</th><th>Actions</th></tr></thead>
+            <tbody id="gwRows"><tr><td colspan="5" class="muted p-4">Loading...</td></tr></tbody>
           </table>
         </div>
       </section>
 
       <section class="card">
-        <div class="px-4 py-4 border-b">
-          <h2 class="font-medium" id="gwFormTitle">Add Gateway</h2>
-          <p class="text-xs muted mt-0.5" id="gwFormDesc">Create or edit a gateway.</p>
+        <div class="px-5 py-4 border-b">
+          <h2 class="text-lg font-semibold" id="gwFormTitle">Add Gateway</h2>
+          <p class="text-sm muted mt-1" id="gwFormDesc">Register a new gateway.</p>
         </div>
-        <div class="p-4">
-          <form id="gwForm" class="space-y-3">
-            <div><label class="label" for="gwName">Name</label><input id="gwName" class="input" required placeholder="gw-seoul-1"></div>
-            <div><label class="label" for="gwEnabled">Enabled</label><select id="gwEnabled" class="select"><option value="true">true</option><option value="false">false</option></select></div>
-            <div><label class="label" for="gwToken">Token</label><input id="gwToken" class="input mono" placeholder="Leave empty to auto-generate"></div>
-            <div><label class="label" for="gwDescInput">Description</label><textarea id="gwDescInput" class="textarea" placeholder="Optional"></textarea></div>
-            <div class="flex gap-2 pt-1">
+        <div class="p-5">
+          <form id="gwForm" class="space-y-4">
+            <div>
+              <label class="label" for="gwName">Name</label>
+              <input id="gwName" class="input" required placeholder="gw-seoul-1">
+            </div>
+            <div>
+              <label class="label" for="gwEnabled">Enabled</label>
+              <select id="gwEnabled" class="select">
+                <option value="true">true</option>
+                <option value="false">false</option>
+              </select>
+            </div>
+            <div>
+              <label class="label" for="gwToken">Token</label>
+              <input id="gwToken" class="input mono" placeholder="Leave empty to auto-generate" spellcheck="false">
+            </div>
+            <div>
+              <label class="label" for="gwDescInput">Description</label>
+              <textarea id="gwDescInput" class="textarea" placeholder="Optional"></textarea>
+            </div>
+            <div class="flex flex-wrap gap-2 pt-1">
               <button type="submit" class="btn btn-primary" id="gwSubmit">Save Gateway</button>
               <button type="button" class="btn" id="gwReset">Reset</button>
             </div>
-            <div id="gwMsg" class="msg"></div>
+            <div id="gwMsg" class="msg" aria-live="polite"></div>
           </form>
         </div>
       </section>
@@ -163,9 +226,32 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
+const root = document.documentElement;
+
+function applyPrefs() {
+  const theme = localStorage.getItem('xq_theme') || 'light';
+  const large = localStorage.getItem('xq_large_text') === '1';
+  root.classList.toggle('dark', theme === 'dark');
+  root.classList.toggle('large-text', large);
+  $('themeToggle').textContent = theme === 'dark' ? 'Light mode' : 'Dark mode';
+  $('textToggle').textContent = large ? 'Normal text' : 'Large text';
+}
+$('themeToggle').onclick = () => {
+  localStorage.setItem('xq_theme', root.classList.contains('dark') ? 'light' : 'dark');
+  applyPrefs();
+};
+$('textToggle').onclick = () => {
+  localStorage.setItem('xq_large_text', root.classList.contains('large-text') ? '0' : '1');
+  applyPrefs();
+};
+applyPrefs();
+
 const apiKeyInput = $('apiKey');
 apiKeyInput.value = localStorage.getItem('xq_api_key') || '';
-$('saveKey').onclick = () => { localStorage.setItem('xq_api_key', apiKeyInput.value.trim()); setMsg($('globalMsg'), 'API key saved.', 'ok'); };
+$('saveKey').onclick = () => {
+  localStorage.setItem('xq_api_key', apiKeyInput.value.trim());
+  setMsg($('globalMsg'), 'API key saved.', 'ok');
+};
 
 function headers() {
   const h = { 'Content-Type': 'application/json' };
@@ -176,116 +262,218 @@ function headers() {
 async function api(path, opts = {}) {
   const res = await fetch(path, { ...opts, headers: { ...headers(), ...(opts.headers || {}) } });
   const text = await res.text();
-  let data; try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+  let data;
+  try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
   if (!res.ok) throw new Error(data.error || data.detail || data.raw || res.statusText || 'Request failed');
   return data;
 }
-function setMsg(el, msg, cls='') { el.textContent = msg || ''; el.className = 'msg ' + (cls || ''); }
-function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function setMsg(el, msg, cls = '') { el.textContent = msg || ''; el.className = 'msg ' + (cls || ''); }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])); }
 
 let VMS = [], GWS = [];
+
 async function refresh() {
   try {
     const [vms, gws] = await Promise.all([api('/api/vms'), api('/api/gateways')]);
-    VMS = vms.items || []; GWS = gws.items || [];
-    renderVMs(); renderGWs(); renderStats();
+    VMS = vms.items || [];
+    GWS = gws.items || [];
+    renderVMs();
+    renderGWs();
+    renderStats();
     setMsg($('globalMsg'), '', '');
   } catch (e) {
     setMsg($('globalMsg'), 'Load failed: ' + e.message, 'err');
   }
 }
+
 function renderStats() {
   $('statVms').textContent = VMS.length;
   const online = GWS.filter(g => g.online).length;
   $('statGw').textContent = online + ' / ' + GWS.length;
   $('statSess').textContent = GWS.reduce((a, g) => a + (g.sessions || 0), 0);
 }
+
 function badge(enabled, online) {
   if (!enabled) return '<span class="badge badge-warn"><span class="dot"></span>disabled</span>';
   if (online === undefined) return '<span class="badge badge-on"><span class="dot"></span>enabled</span>';
-  return online ? '<span class="badge badge-on"><span class="dot"></span>online</span>' : '<span class="badge badge-off"><span class="dot"></span>offline</span>';
+  return online
+    ? '<span class="badge badge-on"><span class="dot"></span>online</span>'
+    : '<span class="badge badge-off"><span class="dot"></span>offline</span>';
 }
+
 function renderVMs() {
   const tbody = $('vmRows');
-  if (!VMS.length) { tbody.innerHTML = '<tr><td colspan="5" class="muted">No VMs.</td></tr>'; return; }
+  if (!VMS.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="muted" style="padding:1rem .75rem;">No VMs registered.</td></tr>';
+    return;
+  }
   tbody.innerHTML = VMS.map(vm => `<tr>
-    <td><div class="font-medium">${esc(vm.name)}</div><div class="mono muted mt-0.5">${esc(vm.vm_uid)}</div></td>
+    <td>
+      <div class="font-medium">${esc(vm.name)}</div>
+      <div class="mono muted mt-1">${esc(vm.vm_uid)}</div>
+      ${vm.description ? `<div class="text-sm muted mt-1">${esc(vm.description)}</div>` : ''}
+    </td>
     <td class="mono">${esc(vm.ip)}:${esc(vm.ssh_port)}</td>
     <td class="mono">${esc(vm.username)}</td>
     <td>${badge(vm.enabled)}</td>
-    <td><div class="flex gap-2 justify-end"><button class="btn btn-sm" onclick="editVM('${esc(vm.vm_uid)}')">Edit</button><button class="btn btn-sm btn-danger" onclick="delVM('${esc(vm.vm_uid)}')">Delete</button></div></td>
+    <td>
+      <div class="flex gap-2 justify-end flex-wrap">
+        <button class="btn btn-sm" type="button" onclick="editVM('${esc(vm.vm_uid)}')">Edit</button>
+        <button class="btn btn-sm btn-danger" type="button" onclick="delVM('${esc(vm.vm_uid)}')">Delete</button>
+      </div>
+    </td>
   </tr>`).join('');
 }
+
 function renderGWs() {
   const tbody = $('gwRows');
-  if (!GWS.length) { tbody.innerHTML = '<tr><td colspan="5" class="muted">No gateways.</td></tr>'; return; }
+  if (!GWS.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="muted" style="padding:1rem .75rem;">No gateways registered.</td></tr>';
+    return;
+  }
   tbody.innerHTML = GWS.map(gw => {
-    const token = gw.token ? (gw.token.length > 14 ? gw.token.slice(0,10)+'…' : gw.token) : '-';
+    const token = gw.token ? (gw.token.length > 14 ? gw.token.slice(0, 10) + '…' : gw.token) : '-';
     return `<tr>
-      <td><div class="font-medium">${esc(gw.name)}</div>${gw.description ? `<div class="text-xs muted mt-0.5">${esc(gw.description)}</div>` : ''}</td>
+      <td>
+        <div class="font-medium">${esc(gw.name)}</div>
+        ${gw.description ? `<div class="text-sm muted mt-1">${esc(gw.description)}</div>` : ''}
+      </td>
       <td>${badge(gw.enabled, gw.online)}</td>
       <td class="mono">${esc(gw.sessions || 0)}</td>
-      <td class="mono muted" title="${esc(gw.token||'')}">${esc(token)}</td>
-      <td><div class="flex gap-2 justify-end"><button class="btn btn-sm" onclick="editGW('${esc(gw.name)}')">Edit</button><button class="btn btn-sm btn-danger" onclick="delGW('${esc(gw.name)}')">Delete</button></div></td>
+      <td class="mono muted" title="${esc(gw.token || '')}">${esc(token)}</td>
+      <td>
+        <div class="flex gap-2 justify-end flex-wrap">
+          <button class="btn btn-sm" type="button" onclick="editGW('${esc(gw.name)}')">Edit</button>
+          <button class="btn btn-sm btn-danger" type="button" onclick="delGW('${esc(gw.name)}')">Delete</button>
+        </div>
+      </td>
     </tr>`;
   }).join('');
 }
 
 window.editVM = (uid) => {
-  const vm = VMS.find(v => v.vm_uid === uid); if (!vm) return;
-  $('vmUid').value = vm.vm_uid; $('vmName').value = vm.name; $('vmIp').value = vm.ip;
-  $('vmPort').value = vm.ssh_port; $('vmUser').value = vm.username; $('vmDescInput').value = vm.description || '';
+  const vm = VMS.find(v => v.vm_uid === uid);
+  if (!vm) return;
+  $('vmUid').value = vm.vm_uid;
+  $('vmName').value = vm.name;
+  $('vmIp').value = vm.ip;
+  $('vmPort').value = vm.ssh_port;
+  $('vmUser').value = vm.username;
+  $('vmDescInput').value = vm.description || '';
   $('vmEnabled').value = String(!!vm.enabled);
-  $('vmFormTitle').textContent = 'Edit VM'; $('vmFormDesc').textContent = vm.vm_uid; $('vmSubmit').textContent = 'Update VM';
+  $('vmFormTitle').textContent = 'Edit VM';
+  $('vmFormDesc').textContent = vm.vm_uid;
+  $('vmSubmit').textContent = 'Update VM';
   setMsg($('vmMsg'), '');
 };
+
 window.delVM = async (uid) => {
-  if (!confirm('Delete VM?')) return;
-  try { await api('/api/vms/' + encodeURIComponent(uid), { method:'DELETE' }); setMsg($('vmMsg'),'Deleted.','ok'); if ($('vmUid').value===uid) $('vmReset').onclick(); refresh(); }
-  catch(e){ setMsg($('vmMsg'), e.message, 'err'); }
+  if (!confirm('Delete this VM?')) return;
+  try {
+    await api('/api/vms/' + encodeURIComponent(uid), { method: 'DELETE' });
+    setMsg($('vmMsg'), 'VM deleted.', 'ok');
+    if ($('vmUid').value === uid) $('vmReset').onclick();
+    refresh();
+  } catch (e) {
+    setMsg($('vmMsg'), e.message, 'err');
+  }
 };
+
 window.editGW = (name) => {
-  const gw = GWS.find(g => g.name === name); if (!gw) return;
-  $('gwName').value = gw.name; $('gwName').disabled = true; $('gwToken').value = gw.token || '';
-  $('gwDescInput').value = gw.description || ''; $('gwEnabled').value = String(!!gw.enabled);
-  $('gwFormTitle').textContent = 'Edit Gateway'; $('gwFormDesc').textContent = gw.name; $('gwSubmit').textContent = 'Update Gateway';
+  const gw = GWS.find(g => g.name === name);
+  if (!gw) return;
+  $('gwName').value = gw.name;
+  $('gwName').disabled = true;
+  $('gwToken').value = gw.token || '';
+  $('gwDescInput').value = gw.description || '';
+  $('gwEnabled').value = String(!!gw.enabled);
+  $('gwFormTitle').textContent = 'Edit Gateway';
+  $('gwFormDesc').textContent = gw.name;
+  $('gwSubmit').textContent = 'Update Gateway';
   setMsg($('gwMsg'), '');
 };
+
 window.delGW = async (name) => {
-  if (!confirm('Delete gateway?')) return;
-  try { await api('/api/gateways/' + encodeURIComponent(name), { method:'DELETE' }); setMsg($('gwMsg'),'Deleted.','ok'); if ($('gwName').value===name && $('gwName').disabled) $('gwReset').onclick(); refresh(); }
-  catch(e){ setMsg($('gwMsg'), e.message, 'err'); }
+  if (!confirm('Delete this gateway?')) return;
+  try {
+    await api('/api/gateways/' + encodeURIComponent(name), { method: 'DELETE' });
+    setMsg($('gwMsg'), 'Gateway deleted.', 'ok');
+    if ($('gwName').value === name && $('gwName').disabled) $('gwReset').onclick();
+    refresh();
+  } catch (e) {
+    setMsg($('gwMsg'), e.message, 'err');
+  }
 };
 
 $('vmReset').onclick = () => {
-  $('vmUid').value=''; $('vmForm').reset(); $('vmPort').value='22'; $('vmUser').value='root'; $('vmEnabled').value='true';
-  $('vmFormTitle').textContent='Add VM'; $('vmFormDesc').textContent='Create or edit a VM.'; $('vmSubmit').textContent='Save VM'; setMsg($('vmMsg'),'');
+  $('vmUid').value = '';
+  $('vmForm').reset();
+  $('vmPort').value = '22';
+  $('vmUser').value = 'root';
+  $('vmEnabled').value = 'true';
+  $('vmFormTitle').textContent = 'Add VM';
+  $('vmFormDesc').textContent = 'Register a new VM.';
+  $('vmSubmit').textContent = 'Save VM';
+  setMsg($('vmMsg'), '');
 };
+
 $('gwReset').onclick = () => {
-  $('gwForm').reset(); $('gwName').disabled=false; $('gwEnabled').value='true';
-  $('gwFormTitle').textContent='Add Gateway'; $('gwFormDesc').textContent='Create or edit a gateway.'; $('gwSubmit').textContent='Save Gateway'; setMsg($('gwMsg'),'');
+  $('gwForm').reset();
+  $('gwName').disabled = false;
+  $('gwEnabled').value = 'true';
+  $('gwFormTitle').textContent = 'Add Gateway';
+  $('gwFormDesc').textContent = 'Register a new gateway.';
+  $('gwSubmit').textContent = 'Save Gateway';
+  setMsg($('gwMsg'), '');
 };
 
 $('vmForm').onsubmit = async (e) => {
   e.preventDefault();
   const uid = $('vmUid').value.trim();
-  const body = { name:$('vmName').value.trim(), ip:$('vmIp').value.trim(), ssh_port:parseInt($('vmPort').value||'22',10), username:$('vmUser').value.trim()||'root', description:$('vmDescInput').value, enabled:$('vmEnabled').value==='true' };
+  const body = {
+    name: $('vmName').value.trim(),
+    ip: $('vmIp').value.trim(),
+    ssh_port: parseInt($('vmPort').value || '22', 10),
+    username: $('vmUser').value.trim() || 'root',
+    description: $('vmDescInput').value,
+    enabled: $('vmEnabled').value === 'true'
+  };
   try {
-    if (uid) await api('/api/vms/' + encodeURIComponent(uid), { method:'PUT', body:JSON.stringify(body) });
-    else await api('/api/vms', { method:'POST', body:JSON.stringify(body) });
-    setMsg($('vmMsg'), uid ? 'VM updated.' : 'VM created.', 'ok'); $('vmReset').onclick(); refresh();
-  } catch(e){ setMsg($('vmMsg'), e.message, 'err'); }
+    if (uid) await api('/api/vms/' + encodeURIComponent(uid), { method: 'PUT', body: JSON.stringify(body) });
+    else await api('/api/vms', { method: 'POST', body: JSON.stringify(body) });
+    setMsg($('vmMsg'), uid ? 'VM updated.' : 'VM created.', 'ok');
+    $('vmReset').onclick();
+    refresh();
+  } catch (e) {
+    setMsg($('vmMsg'), e.message, 'err');
+  }
 };
+
 $('gwForm').onsubmit = async (e) => {
   e.preventDefault();
   const name = $('gwName').value.trim();
   const editing = $('gwName').disabled;
-  const body = { name, token:$('gwToken').value.trim(), description:$('gwDescInput').value, enabled:$('gwEnabled').value==='true' };
+  const body = {
+    name,
+    token: $('gwToken').value.trim(),
+    description: $('gwDescInput').value,
+    enabled: $('gwEnabled').value === 'true'
+  };
   try {
-    if (editing) await api('/api/gateways/' + encodeURIComponent(name), { method:'PUT', body:JSON.stringify({token:body.token, description:body.description, enabled:body.enabled}) });
-    else await api('/api/gateways', { method:'POST', body:JSON.stringify(body) });
-    setMsg($('gwMsg'), editing ? 'Gateway updated.' : 'Gateway created.', 'ok'); $('gwReset').onclick(); refresh();
-  } catch(e){ setMsg($('gwMsg'), e.message, 'err'); }
+    if (editing) {
+      await api('/api/gateways/' + encodeURIComponent(name), {
+        method: 'PUT',
+        body: JSON.stringify({ token: body.token, description: body.description, enabled: body.enabled })
+      });
+    } else {
+      await api('/api/gateways', { method: 'POST', body: JSON.stringify(body) });
+    }
+    setMsg($('gwMsg'), editing ? 'Gateway updated.' : 'Gateway created.', 'ok');
+    $('gwReset').onclick();
+    refresh();
+  } catch (e) {
+    setMsg($('gwMsg'), e.message, 'err');
+  }
 };
 
 $('refresh').onclick = refresh;
