@@ -1,0 +1,10 @@
+gateway:
+  relay_ws_url: ws://relay.example.com:18765/gateway
+  gateway_name: gateway-1
+  gateway_token: replace-with-token
+  reconnect_min: 1
+  reconnect_max: 30
+  ping_interval: 20
+  ping_timeout: 20
+  ssh_connect_timeout: 15
+  log_level: INFO
